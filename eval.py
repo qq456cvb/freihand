@@ -36,8 +36,8 @@ except:
 
 
 def verts2pcd(verts, color=None):
-    pcd = o3d.PointCloud()
-    pcd.points = o3d.Vector3dVector(verts)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(verts)
     if color is not None:
         if color == 'r':
             pcd.paint_uniform_color([1, 0.0, 0])
@@ -51,8 +51,8 @@ def verts2pcd(verts, color=None):
 def calculate_fscore(gt, pr, th=0.01):
     gt = verts2pcd(gt)
     pr = verts2pcd(pr)
-    d1 = o3d.compute_point_cloud_to_point_cloud_distance(gt, pr) # closest dist for each gt point
-    d2 = o3d.compute_point_cloud_to_point_cloud_distance(pr, gt) # closest dist for each pred point
+    d1 = gt.compute_point_cloud_distance(pr) # closest dist for each gt point
+    d2 = pr.compute_point_cloud_distance(gt) # closest dist for each pred point
     if len(d1) and len(d2):
         recall = float(sum(d < th for d in d2)) / float(len(d2))  # how many of our predicted points lie close to a gt point?
         precision = float(sum(d < th for d in d1)) / float(len(d1))  # how many of gt points are matched?
@@ -325,31 +325,6 @@ def main(gt_path, pred_path, output_dir, pred_file_name=None, set_name=None):
             fo.write('%s\n' % t)
     print('Scores written to: %s' % score_path)
 
-    # scale to cm
-    thresh_xyz *= 100.0
-    thresh_xyz_al *= 100.0
-    thresh_mesh *= 100.0
-    thresh_mesh_al *= 100.0
-
-    createHTML(
-        output_dir,
-        [
-            curve(thresh_xyz, pck_xyz, 'Distance in cm', 'Percentage of correct keypoints', 'PCK curve for keypoint error'),
-            curve(thresh_xyz_al, pck_xyz_al, 'Distance in cm', 'Percentage of correct keypoints', 'PCK curve for aligned keypoint error'),
-            curve(thresh_mesh, pck_mesh, 'Distance in cm', 'Percentage of correct vertices', 'PCV curve for mesh error'),
-            curve(thresh_mesh_al, pck_mesh_al, 'Distance in cm', 'Percentage of correct vertices', 'PCV curve for aligned mesh error')
-        ]
-    )
-
-    pck_curve_data = {
-        'xyz': [thresh_xyz.tolist(), pck_xyz.tolist()],
-        'xyz_al': [thresh_xyz_al.tolist(), pck_xyz_al.tolist()],
-        'mesh': [thresh_mesh.tolist(), pck_mesh.tolist()],
-        'mesh_al': [thresh_mesh_al.tolist(), pck_mesh_al.tolist()],
-    }
-    with open('pck_data.json', 'w') as fo:
-        json.dump(pck_curve_data, fo)
-
     print('Evaluation complete.')
 
 
@@ -359,14 +334,14 @@ if __name__ == '__main__':
                         help='Path to where prediction the submited result and the ground truth is.')
     parser.add_argument('output_dir', type=str,
                         help='Path to where the eval result should be.')
-    parser.add_argument('--pred_file_name', type=str, default='pred.json',
+    parser.add_argument('--pred_file_name', type=str, default='freihand-val.json',
                         help='Name of the eval file.')
     args = parser.parse_args()
 
     # call eval
     main(
-        os.path.join(args.input_dir, 'ref'),
-        os.path.join(args.input_dir, 'res'),
+        args.input_dir,
+        args.output_dir,
         args.output_dir,
         args.pred_file_name,
         set_name='evaluation'
